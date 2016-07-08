@@ -358,11 +358,11 @@ class APSW(unittest.TestCase):
         self.deltempfiles()
 
     def assertTableExists(self, tablename):
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from ["+tablename+"]"))[0], 0)
+        self.assertEqual(next(self.db.execute("select count(*) from ["+tablename+"]"))[0], 0)
 
     def assertTableNotExists(self, tablename):
         # you get SQLError if the table doesn't exist!
-        self.assertRaises(apsw.SQLError, self.db.cursor().execute, "select count(*) from ["+tablename+"]")
+        self.assertRaises(apsw.SQLError, self.db.execute, "select count(*) from ["+tablename+"]")
 
     def assertTablesEqual(self, dbl, left, dbr, right):
         # Ensure tables have the same contents.  Rowids can be
@@ -572,12 +572,12 @@ class APSW(unittest.TestCase):
         self.assertRaises(apsw.BindingsError, c.execute, "insert into foo values(?,?,?); insert into foo values(?,?,?)",
                           (101,100,101,1000,103,104,105)) # too many
         # check the relevant statements did or didn't execute as appropriate
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from foo where x=99"))[0], 1)
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from foo where x=102"))[0], 1)
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from foo where x=100"))[0], 1)
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from foo where x=1000"))[0], 0)
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from foo where x=101"))[0], 1)
-        self.assertEqual(next(self.db.cursor().execute("select count(*) from foo where x=105"))[0], 0)
+        self.assertEqual(next(self.db.execute("select count(*) from foo where x=99"))[0], 1)
+        self.assertEqual(next(self.db.execute("select count(*) from foo where x=102"))[0], 1)
+        self.assertEqual(next(self.db.execute("select count(*) from foo where x=100"))[0], 1)
+        self.assertEqual(next(self.db.execute("select count(*) from foo where x=1000"))[0], 0)
+        self.assertEqual(next(self.db.execute("select count(*) from foo where x=101"))[0], 1)
+        self.assertEqual(next(self.db.execute("select count(*) from foo where x=105"))[0], 0)
 
         # check there are some bindings!
         self.assertRaises(apsw.BindingsError, c.execute, "create table bar(x,y,z);insert into bar values(?,?,?)")
@@ -855,17 +855,17 @@ class APSW(unittest.TestCase):
         self.assertRaises(TypeError, self.db.setwalhook, 12)
         self.db.setwalhook(None)
         # check we can set wal mode
-        self.assertEqual("wal", self.db.cursor().execute("pragma journal_mode=wal").fetchall()[0][0])
+        self.assertEqual("wal", self.db.execute("pragma journal_mode=wal").fetchall()[0][0])
         # errors in wal callback
         def zerodiv(*args): 1/0
         self.db.setwalhook(zerodiv)
-        self.assertRaises(ZeroDivisionError, self.db.cursor().execute, "create table one(x)")
+        self.assertRaises(ZeroDivisionError, self.db.execute, "create table one(x)")
         # the error happens after the wal commit so the table should exist
         self.assertTableExists("one")
 
         def badreturn(*args): return "three"
         self.db.setwalhook(badreturn)
-        self.assertRaises(TypeError, self.db.cursor().execute, "create table two(x)")
+        self.assertRaises(TypeError, self.db.execute, "create table two(x)")
         self.assertTableExists("two")
 
         expectdbname=""
@@ -877,11 +877,11 @@ class APSW(unittest.TestCase):
 
         expectdbname="main"
         self.db.setwalhook(walhook)
-        self.db.cursor().execute("create table three(x)")
-        self.db.cursor().execute("attach '%stestdb2?psow=0' as fred" % ("file:"+TESTFILEPREFIX,) )
-        self.assertEqual("wal", self.db.cursor().execute("pragma fred.journal_mode=wal").fetchall()[0][0])
+        self.db.execute("create table three(x)")
+        self.db.execute("attach '%stestdb2?psow=0' as fred" % ("file:"+TESTFILEPREFIX,) )
+        self.assertEqual("wal", self.db.execute("pragma fred.journal_mode=wal").fetchall()[0][0])
         expectdbname="fred"
-        self.db.cursor().execute("create table fred.three(x)")
+        self.db.execute("create table fred.three(x)")
 
     def testAuthorizer(self):
         "Verify the authorizer works"
@@ -1039,7 +1039,7 @@ class APSW(unittest.TestCase):
         c.execute("select 3")
         self.assertEqual( traced, [False, False] )
         traced=[False, False]
-        self.db.cursor().execute("select 3")
+        self.db.execute("select 3")
         self.assertEqual( traced, [True, False] )
         self.assertEqual( self.db.getexectrace(), contrace )
         self.assertEqual( c.getexectrace(), None )
@@ -1112,7 +1112,7 @@ class APSW(unittest.TestCase):
         self.assertEqual( traced, [False, False])
         traced=[False, False]
         self.db.setrowtrace(contrace)
-        for row in self.db.cursor().execute("select 3,3"): pass
+        for row in self.db.execute("select 3,3"): pass
         self.assertEqual( traced, [True, False])
         traced=[False, False]
         c.setrowtrace(curtrace)
@@ -1941,7 +1941,7 @@ class APSW(unittest.TestCase):
             self.checkFTSExtension(v)
 
     def checkFTSExtension(self, v):
-        self.db.cursor().execute("drop table if exists foo; drop table if exists test")
+        self.db.execute("drop table if exists foo; drop table if exists test")
         if not self.checkOptionalExtension("fts"+str(v), "create virtual table foo using fts%d()" % v):
             return
         c=self.db.cursor()
@@ -2021,9 +2021,9 @@ class APSW(unittest.TestCase):
         if not self.checkOptionalExtension("json1", "select json('{}')"):
             return
         # some sanity checks that it is working
-        l=self.db.cursor().execute("select json_array_length('[1,2,3,4]')").fetchall()[0][0]
+        l=self.db.execute("select json_array_length('[1,2,3,4]')").fetchall()[0][0]
         self.assertEqual(l, 4)
-        l=self.db.cursor().execute("""select json_extract('{"a":2,"c":[4,5,{"f":7}]}', '$.c[2].f')""").fetchall()[0][0]
+        l=self.db.execute("""select json_extract('{"a":2,"c":[4,5,{"f":7}]}', '$.c[2].f')""").fetchall()[0][0]
         self.assertEqual(l, 7)
 
     def testTracebacks(self):
@@ -2094,7 +2094,7 @@ class APSW(unittest.TestCase):
         for i in "1", "2", "3":
             Source.Create=getattr(Source, "Create"+i)
             try:
-                self.db.cursor().execute("create virtual table vt using foo()")
+                self.db.execute("create virtual table vt using foo()")
                 1/0
             except:
                 klass,value,tb=sys.exc_info()
@@ -2943,7 +2943,7 @@ class APSW(unittest.TestCase):
         try:
             db=apsw.Connection(":memory:")
             db.createscalarfunction("foo", lambda x: u("a unicode string"))
-            for row in db.cursor().execute("select foo(3)"):
+            for row in db.execute("select foo(3)"):
                 pass
             1/0
         except apsw.TooBigError:
@@ -2957,7 +2957,7 @@ class APSW(unittest.TestCase):
                 def func(x):
                     return "an ordinary string"*10000
                 db.createscalarfunction("foo", func)
-                for row in db.cursor().execute("select foo(3)"):
+                for row in db.execute("select foo(3)"):
                     pass
                 1/0
             except apsw.TooBigError:
@@ -2967,7 +2967,7 @@ class APSW(unittest.TestCase):
         apsw.faultdict["DoBindingLargeUnicode"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("create table foo(x); insert into foo values(?)", (u("aaaa"),))
+            db.execute("create table foo(x); insert into foo values(?)", (u("aaaa"),))
             1/0
         except apsw.TooBigError:
             pass
@@ -2977,7 +2977,7 @@ class APSW(unittest.TestCase):
             apsw.faultdict["DoBindingLargeString"]=True
             try:
                 db=apsw.Connection(":memory:")
-                db.cursor().execute("create table foo(x); insert into foo values(?)", ("aaaa"*10000,))
+                db.execute("create table foo(x); insert into foo values(?)", ("aaaa"*10000,))
                 1/0
             except apsw.TooBigError:
                 pass
@@ -2991,7 +2991,7 @@ class APSW(unittest.TestCase):
             # The exception could be thrown on either of these lines
             # depending on several factors
             db=apsw.Connection(fname)
-            db.cursor().execute("select * from sqlite_master")
+            db.execute("select * from sqlite_master")
             1/0 # should not be reachable
         except:
             klass,e,tb=sys.exc_info()
@@ -3080,14 +3080,14 @@ class APSW(unittest.TestCase):
 
     def testIssue15(self):
         "Issue 15: Release GIL during calls to prepare"
-        self.db.cursor().execute("create table foo(x)")
-        self.db.cursor().execute("begin exclusive")
+        self.db.execute("create table foo(x)")
+        self.db.execute("begin exclusive")
         db2=apsw.Connection(TESTFILEPREFIX+"testdb")
         db2.setbusytimeout(30000)
         t=ThreadRunner(db2.cursor().execute, "select * from foo")
         t.start()
         time.sleep(1)
-        self.db.cursor().execute("commit")
+        self.db.execute("commit")
         t.go()
 
     def testIssue19(self):
@@ -3100,7 +3100,7 @@ class APSW(unittest.TestCase):
         next(c)
         next(c)
         next(c)
-        self.db.cursor().execute("delete from numbers where x=5")
+        self.db.execute("delete from numbers where x=5")
         next(c)
         next(c)
 
@@ -3152,24 +3152,24 @@ class APSW(unittest.TestCase):
                 elif i%5==1:
                     sql="select timesten(x) from foo where x=? order by x"
                     called=0
-                    for row in self.db.cursor().execute(sql, (i,)):
+                    for row in self.db.execute(sql, (i,)):
                         called+=1
                         self.assertEqual(row[0], 10*i)
                     # same value could be present multiple times
                     self.assertTrue(called>=1)
                 elif i%5==2:
                     try:
-                        self.db.cursor().execute("deliberate syntax error")
+                        self.db.execute("deliberate syntax error")
                     except apsw.SQLError:
                         assert("deliberate" in str(sys.exc_info()[1]))
                 elif i%5==3:
                     try:
-                        self.db.cursor().execute("bogus syntax error")
+                        self.db.execute("bogus syntax error")
                     except apsw.SQLError:
                         assert("bogus" in str(sys.exc_info()[1]))
                 else:
                     sql="select timesten(x) from foo where x=? order by x"
-                    self.db.cursor().execute(sql, (i,))
+                    self.db.execute(sql, (i,))
 
         threads=[ThreadRunner(dostuff, 15) for _ in range(20)]
         for t in threads:
@@ -3207,15 +3207,15 @@ class APSW(unittest.TestCase):
 
     def testIssue98(self, runfrom106=None):
         "Issue 98: An error in context manager commit should do a rollback"
-        self.db.cursor().execute("create table foo(x); insert into foo values(3); insert into foo values(4)")
+        self.db.execute("create table foo(x); insert into foo values(3); insert into foo values(4)")
         # We need the reader to block a writer, which requires non-WAL mode
-        self.db.cursor().execute("pragma journal_mode=delete")
+        self.db.execute("pragma journal_mode=delete")
         db2=apsw.Connection(TESTFILEPREFIX+"testdb")
         if runfrom106:
             db2.setexectrace(runfrom106)
         db2.cursor().execute("pragma journal_mode=delete")
         # deliberately don't read from cursor on connection 1 which will prevent a commit
-        x=self.db.cursor().execute("select * from foo")
+        x=self.db.execute("select * from foo")
         db2.__enter__()
         db2.cursor().execute("insert into foo values(5)") # transaction is buffered in memory by SQLite
         try:
@@ -3231,14 +3231,14 @@ class APSW(unittest.TestCase):
         # Verify that error in tracer results in rollback
         self.db.__enter__()
         def h(*args): 1/0
-        self.db.cursor().execute("insert into foo values(6)")
+        self.db.execute("insert into foo values(6)")
         self.db.setexectrace(h)
         try:
             self.db.__exit__(None, None, None)
         except ZeroDivisionError:
             self.db.setexectrace(None)
             pass
-        for row in self.db.cursor().execute("select * from foo where x=6"):
+        for row in self.db.execute("select * from foo where x=6"):
             self.fail("Transaction was not rolled back")
 
     def testIssue103(self):
@@ -3249,7 +3249,7 @@ class APSW(unittest.TestCase):
 
         self.db.createmodule("issue103", Source())
         try:
-            self.db.cursor().execute("create virtual table foo using issue103()")
+            self.db.execute("create virtual table foo using issue103()")
             1/0 # should not be reached
         except apsw.SQLError:
             assert "near \"delete\": syntax error" in str(sys.exc_info()[1])
@@ -3281,8 +3281,8 @@ class APSW(unittest.TestCase):
             kwargs={"stdin": fh[0], "stdout": fh[1], "stderr": fh[2]}
 
             rows=(["correct"], ["horse"], ["battery"], ["staple"])
-            self.db.cursor().execute("create table foo(x)")
-            self.db.cursor().executemany("insert into foo values(?)", rows)
+            self.db.execute("create table foo(x)")
+            self.db.executemany("insert into foo values(?)", rows)
             shell=apsw.Shell(db=self.db, **kwargs)
             shell.command_dump([])
 
@@ -3389,7 +3389,7 @@ class APSW(unittest.TestCase):
             # blob open for reading.  The close method called in the
             # destructor will then also give the error
             db=apsw.Connection(":memory:")
-            rowid=next(db.cursor().execute("create table foo(x); insert into foo values(x'aabbccdd'); select rowid from foo"))[0]
+            rowid=next(db.execute("create table foo(x); insert into foo values(x'aabbccdd'); select rowid from foo"))[0]
             blob=db.blobopen("main", "foo", "x", rowid, False)
             try:
                 blob.write(b("badd"))
@@ -3431,19 +3431,19 @@ class APSW(unittest.TestCase):
             pass
         cur.executemany("insert into foo values(?)", [[1],[2]])
         # overflow the statement cache
-        l=[self.db.cursor().execute("select x from foo"+" "*i) for i in range(scsize+200)]
+        l=[self.db.execute("select x from foo"+" "*i) for i in range(scsize+200)]
         del l
         gc.collect()
         # coverage
         l=[]
         for i in range(scsize+10):
-            l.append(self.db.cursor().execute("select x from foo"+" "*i))
-            for row in self.db.cursor().execute("select * from foo"):
+            l.append(self.db.execute("select x from foo"+" "*i))
+            for row in self.db.execute("select * from foo"):
                 pass
         # other wrangling
-        l=[self.db.cursor().execute("select x from foo") for i in range(scsize+200)]
+        l=[self.db.execute("select x from foo") for i in range(scsize+200)]
         for i in range(scsize+200):
-            for row in self.db.cursor().execute("select * from foo"+" "*i):
+            for row in self.db.execute("select * from foo"+" "*i):
                 pass
         del l
         gc.collect()
@@ -3455,7 +3455,7 @@ class APSW(unittest.TestCase):
         # Get some coverage - overflow apswbuffer recycle.  100 is
         # statementcache size, 256 is apswbufferrecycle bin size, and
         # 17 is to overflow
-        l=[self.db.cursor().execute(u("select 3"+" "*i)) for i in range(100+256+17)]
+        l=[self.db.execute(u("select 3"+" "*i)) for i in range(100+256+17)]
         while l:
             l.pop().fetchall()
 
@@ -3969,7 +3969,7 @@ class APSW(unittest.TestCase):
         self.assertRaises(ValueError, blobro.tell)
         self.assertRaises(ValueError, blobro.write, "abc")
         # readinto tests
-        rowidri=self.db.cursor().execute("insert into foo values(x'112233445566778899aabbccddeeff'); select last_insert_rowid()").fetchall()[0][0]
+        rowidri=self.db.execute("insert into foo values(x'112233445566778899aabbccddeeff'); select last_insert_rowid()").fetchall()[0][0]
         blobro=self.db.blobopen("main", "foo", "x", rowidri, False)
         self.assertRaises(TypeError, blobro.readinto)
         self.assertRaises(TypeError, blobro.readinto, 3)
@@ -4028,7 +4028,7 @@ class APSW(unittest.TestCase):
             check_unchanged()
         # get a read error
         blobro.seek(0)
-        self.db.cursor().execute("update foo set x=x'112233445566' where rowid=?", (rowidri,))
+        self.db.execute("update foo set x=x'112233445566' where rowid=?", (rowidri,))
         self.assertRaises(apsw.AbortError, blobro.readinto, buf)
         # should fail with buffer being a string
         self.assertRaises(TypeError, blobro.readinto, "abcd", 1, 1)
@@ -4058,7 +4058,7 @@ class APSW(unittest.TestCase):
         blobro=self.db.blobopen("main", "foo", "x", rowid, False)
         self.assertRaises(apsw.ReadOnlyError, blobro.write, b("abcd"))
         blobro.close(True)
-        self.db.cursor().execute("insert into foo(_rowid_, x) values(99, 1)")
+        self.db.execute("insert into foo(_rowid_, x) values(99, 1)")
         blobro=self.db.blobopen("main", "foo", "x", rowid, False)
         self.assertRaises(TypeError, blobro.reopen)
         self.assertRaises(TypeError, blobro.reopen, "banana")
@@ -4169,14 +4169,14 @@ class APSW(unittest.TestCase):
         vfs=ObfuscatedVFS()
 
         query="create table foo(x,y); insert into foo values(1,2); insert into foo values(3,4)"
-        self.db.cursor().execute(query)
+        self.db.execute(query)
 
         db2=apsw.Connection(TESTFILEPREFIX+"testdb2", vfs=vfs.vfsname)
         db2.cursor().execute(query)
         db2.close()
-        waswal=self.db.cursor().execute("pragma journal_mode").fetchall()[0][0]=="wal"
+        waswal=self.db.execute("pragma journal_mode").fetchall()[0][0]=="wal"
         if waswal:
-            self.db.cursor().execute("pragma journal_mode=delete").fetchall()
+            self.db.execute("pragma journal_mode=delete").fetchall()
         self.db.close() # flush
 
         # check the two databases are the same (modulo the XOR)
@@ -4238,7 +4238,7 @@ class APSW(unittest.TestCase):
             apsw.test_reset_rng()
             vfs=RandomVFS()
             db=apsw.Connection(TESTFILEPREFIX+"testdb")
-            next(db.cursor().execute("select randomblob(10)"))
+            next(db.execute("select randomblob(10)"))
 
         class RandomVFSUpper(apsw.VFS):
             def __init__(self):
@@ -5353,7 +5353,7 @@ class APSW(unittest.TestCase):
         # the autocommit tests are to make sure we are not in a transaction
         self.assertEqual(True, self.db.getautocommit())
         self.assertTableNotExists("foo1")
-        run("with self.db as db: db.cursor().execute('create table foo1(x)')")
+        run("with self.db as db: db.execute('create table foo1(x)')")
         self.assertTableExists("foo1")
         self.assertEqual(True, self.db.getautocommit())
 
@@ -5363,7 +5363,7 @@ class APSW(unittest.TestCase):
         try:
             run("""
             with self.db as db:
-                db.cursor().execute('create table foo2(x)')
+                db.execute('create table foo2(x)')
                 1/0
                 """)
         except ZeroDivisionError:
@@ -5375,13 +5375,13 @@ class APSW(unittest.TestCase):
         run("""
         with self.db as db:
            self.assertEqual(False, self.db.getautocommit())
-           db.cursor().execute('create table foo2(x)')
+           db.execute('create table foo2(x)')
            with db as db2:
               self.assertEqual(False, self.db.getautocommit())
-              db.cursor().execute('create table foo3(x)')
+              db.execute('create table foo3(x)')
               with db2 as db3:
                  self.assertEqual(False, self.db.getautocommit())
-                 db.cursor().execute('create table foo4(x)')
+                 db.execute('create table foo4(x)')
         """)
         self.assertEqual(True, self.db.getautocommit())
         self.assertTableExists("foo2")
@@ -5391,22 +5391,22 @@ class APSW(unittest.TestCase):
         # nested - simple - failure
         try:
             run("""
-        self.db.cursor().execute('begin; create table foo5(x)')
+        self.db.execute('begin; create table foo5(x)')
         with self.db as db:
            self.assertEqual(False, self.db.getautocommit())
-           db.cursor().execute('create table foo6(x)')
+           db.execute('create table foo6(x)')
            with db as db2:
               self.assertEqual(False, self.db.getautocommit())
-              db.cursor().execute('create table foo7(x)')
+              db.execute('create table foo7(x)')
               with db2 as db3:
                  self.assertEqual(False, self.db.getautocommit())
-                 db.cursor().execute('create table foo8(x)')
+                 db.execute('create table foo8(x)')
                  1/0
         """)
         except ZeroDivisionError:
             pass
         self.assertEqual(False, self.db.getautocommit())
-        self.db.cursor().execute("commit")
+        self.db.execute("commit")
         self.assertEqual(True, self.db.getautocommit())
         self.assertTableExists("foo5")
         self.assertTableNotExists("foo6")
@@ -5421,7 +5421,7 @@ class APSW(unittest.TestCase):
 
         # make an exit fail
         self.db.__enter__()
-        self.db.cursor().execute("commit")
+        self.db.execute("commit")
         # deliberately futz with the outstanding transaction
         self.assertRaises(apsw.SQLError, self.db.__exit__, None, None, None)
         self.db.__exit__(None, None, None) # extra exit should be harmless
@@ -5437,7 +5437,7 @@ class APSW(unittest.TestCase):
         try:
             run("""
                  with self.db as db:
-                   db.cursor().execute('create table foo2(x)')
+                   db.execute('create table foo2(x)')
                 """)
         except apsw.SQLError: # table already exists so we should get an error
             pass
@@ -5453,7 +5453,7 @@ class APSW(unittest.TestCase):
         try:
             run("""
                  with self.db as db:
-                   db.cursor().execute('create table etfoo2(x)')
+                   db.execute('create table etfoo2(x)')
                 """)
         except ZeroDivisionError:
             pass
@@ -5464,7 +5464,7 @@ class APSW(unittest.TestCase):
         try:
             run("""
                  with self.db as db:
-                   db.cursor().execute('create table etfoo2(x)')
+                   db.execute('create table etfoo2(x)')
                 """)
         except apsw.ExecTraceAbort:
             pass
@@ -5472,7 +5472,7 @@ class APSW(unittest.TestCase):
         self.assertTableNotExists("etfoo2")
 
         # test blobs with context manager
-        self.db.cursor().execute("create table blobby(x); insert into blobby values(x'aabbccddee')")
+        self.db.execute("create table blobby(x); insert into blobby values(x'aabbccddee')")
         rowid=self.db.last_insert_rowid()
         blob=self.db.blobopen('main', 'blobby', 'x', rowid, 0)
         run("""
@@ -5483,7 +5483,7 @@ class APSW(unittest.TestCase):
         # blob gives ValueError if you do operations on closed blob
         self.assertRaises(ValueError, blob.read)
 
-        self.db.cursor().execute("insert into blobby values(x'aabbccddee')")
+        self.db.execute("insert into blobby values(x'aabbccddee')")
         rowid=self.db.last_insert_rowid()
         blob=self.db.blobopen('main', 'blobby', 'x', rowid, 0)
         try:
@@ -5510,9 +5510,9 @@ class APSW(unittest.TestCase):
 
     def fillWithRandomStuff(self, db, seed=1):
         "Fills a database with random content"
-        db.cursor().execute("create table a(x)")
+        db.execute("create table a(x)")
         for i in range(1,11):
-            db.cursor().execute("insert into a values(?)", ("aaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"*i*8192,))
+            db.execute("insert into a values(?)", ("aaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"*i*8192,))
 
     def assertDbIdentical(self, db1, db2):
         "Ensures databases are identical"
@@ -5586,7 +5586,7 @@ class APSW(unittest.TestCase):
         finally:
             b.finish()
         self.assertDbIdentical(self.db, db2)
-        self.db.cursor().execute("drop table a")
+        self.db.execute("drop table a")
 
         # don't clean up
         b=self.db.backup("main", db2, "main")
@@ -5717,7 +5717,7 @@ class APSW(unittest.TestCase):
         self.assertTrue(self.db.filename.endswith("testdb"))
         self.assertTrue(os.sep in self.db.filename)
         self.assertEqual(self.db.filename, self.db.db_filename("main"))
-        self.db.cursor().execute("attach '%s' as foo" % (TESTFILEPREFIX+"testdb2",))
+        self.db.execute("attach '%s' as foo" % (TESTFILEPREFIX+"testdb2",))
         self.assertEqual(self.db.filename+"2", self.db.db_filename("foo"))
 
     def testShell(self, shellclass=None):
@@ -6273,9 +6273,9 @@ class APSW(unittest.TestCase):
         if timersupported:
             reset()
             # create something that should take some time to execute
-            s.db.cursor().execute("create table xyz(x); begin;")
-            s.db.cursor().executemany("insert into xyz values(?)", randomintegers(4000))
-            s.db.cursor().execute("end")
+            s.db.execute("create table xyz(x); begin;")
+            s.db.executemany("insert into xyz values(?)", randomintegers(4000))
+            s.db.execute("end")
             reset()
             # this takes .6 seconds on my machine so we should
             # definitely have non-zero timing information
@@ -6348,7 +6348,7 @@ class APSW(unittest.TestCase):
         # non-gc cursors hanging around will prevent the backup from
         # happening.
         n=randomtable(s.db.cursor())
-        contents=s.db.cursor().execute("select * from "+n).fetchall()
+        contents=s.db.execute("select * from "+n).fetchall()
         reset()
         cmd(".backup %stestdb2" % (TESTFILEPREFIX,) )
         gc.collect()
@@ -6367,30 +6367,30 @@ class APSW(unittest.TestCase):
         s.cmdloop()
         isempty(fh[1])
         isempty(fh[2])
-        newcontents=s.db.cursor().execute("select * from "+n).fetchall()
+        newcontents=s.db.execute("select * from "+n).fetchall()
         # no guarantee of result order
         contents.sort()
         newcontents.sort()
         self.assertEqual(contents, newcontents)
 
         # do they pay attention to the dbname
-        s.db.cursor().execute("attach ':memory:' as memdb")
+        s.db.execute("attach ':memory:' as memdb")
         n=randomtable(s.db.cursor(), "memdb")
-        contents=s.db.cursor().execute("select * from memdb."+n).fetchall()
+        contents=s.db.execute("select * from memdb."+n).fetchall()
         reset()
         gc.collect()
         cmd(".backup memdb %stestdb2" % (TESTFILEPREFIX,))
         s.cmdloop()
         isempty(fh[1])
         isempty(fh[2])
-        s.db.cursor().execute("detach memdb; attach ':memory:' as memdb2")
+        s.db.execute("detach memdb; attach ':memory:' as memdb2")
         reset()
         gc.collect()
         cmd(".restore memdb2 %stestdb2" % (TESTFILEPREFIX,))
         s.cmdloop()
         isempty(fh[1])
         isempty(fh[2])
-        newcontents=s.db.cursor().execute("select * from memdb2."+n).fetchall()
+        newcontents=s.db.execute("select * from memdb2."+n).fetchall()
         # no guarantee of result order
         contents.sort()
         newcontents.sort()
@@ -6517,7 +6517,7 @@ class APSW(unittest.TestCase):
         s.cmdloop()
         isempty(fh[2])
         v=get(fh[1])
-        s.db.cursor().execute("drop table issue82 ; drop view issue82_1 ; drop view issue82_2")
+        s.db.execute("drop table issue82 ; drop view issue82_1 ; drop view issue82_2")
         reset()
         cmd(v)
         s.cmdloop()
@@ -6539,7 +6539,7 @@ class APSW(unittest.TestCase):
         isempty(fh[2])
         v=get(fh[1])
         self.assertTrue("pragma user_version=27;" in v)
-        s.db.cursor().execute("pragma user_version=0")
+        s.db.execute("pragma user_version=0")
         # some nasty stuff
         reset()
         cmd(u("create table nastydata(x,y); insert into nastydata values(null,'xxx\\u1234\\uabcd\\U00012345yyy\r\n\t\"this \\is nasty\u0001stuff!');"
@@ -6619,7 +6619,7 @@ insert into xxblah values(3);
         s.cmdloop()
         isempty(fh[2])
         isempty(fh[1])
-        self.assertEqual(s.db.cursor().execute("select * from xxbar").fetchall(), [(3,)])
+        self.assertEqual(s.db.execute("select * from xxbar").fetchall(), [(3,)])
         # check index
         reset()
         cmd("drop index xxfoo;")
@@ -6679,7 +6679,7 @@ insert into xxblah values(3);
         reset()
         cmd(".encoding iso8859-1\ncreate table enctest(x);\n.echo on\n.read %stest-shell-1\n.echo off" % (TESTFILEPREFIX,) )
         s.cmdloop()
-        self.assertEqual(s.db.cursor().execute("select * from enctest").fetchall()[0][0],
+        self.assertEqual(s.db.execute("select * from enctest").fetchall()[0][0],
                          us)
         self.assertTrue(us in get(fh[2]))
         reset()
@@ -6688,7 +6688,7 @@ insert into xxblah values(3);
         s.cmdloop()
         isempty(fh[2])
         isempty(fh[1])
-        self.assertEqual(s.db.cursor().execute("select * from enctest").fetchall()[0][0],
+        self.assertEqual(s.db.execute("select * from enctest").fetchall()[0][0],
                          us)
         reset()
         cmd(".output %stest-shell-1\n.mode list\nselect * from enctest;" % (TESTFILEPREFIX,))
@@ -6857,14 +6857,14 @@ insert into xxblah values(3);
             self.assertTrue(b("xab") not in read_whole_file(TESTFILEPREFIX+"test-shell-1", "rb"))
         else:
             self.assertTrue("xab" not in read_whole_file(TESTFILEPREFIX+"test-shell-1", "rb"))
-        data=s.db.cursor().execute("select * from imptest; delete from imptest").fetchall()
+        data=s.db.execute("select * from imptest; delete from imptest").fetchall()
         self.assertEqual(2, len(data))
         reset()
         cmd(".import %stest-shell-1 imptest" % (TESTFILEPREFIX,))
         s.cmdloop()
         isempty(fh[1])
         isempty(fh[2])
-        newdata=s.db.cursor().execute("select * from imptest; drop table imptest").fetchall()
+        newdata=s.db.execute("select * from imptest; drop table imptest").fetchall()
         data.sort()
         newdata.sort()
         self.assertEqual(data, newdata)
@@ -6888,7 +6888,7 @@ insert into xxblah values(3);
         isnotempty(fh[2])
         reset()
         # check it was done in a transaction and aborted
-        self.assertEqual(0, s.db.cursor().execute("select count(*) from imptest").fetchall()[0][0])
+        self.assertEqual(0, s.db.execute("select count(*) from imptest").fetchall()[0][0])
 
         ###
         ### Command - autoimport
@@ -7328,7 +7328,7 @@ shell.write(shell.stdout, "hello world\\n")
         ## UnknownSQLiteErrorCode
         apsw.faultdict["UnknownSQLiteErrorCode"]=True
         try:
-            self.db.cursor().execute("select '")
+            self.db.execute("select '")
             1/0
         except:
             klass,value=sys.exc_info()[:2]
@@ -7339,7 +7339,7 @@ shell.write(shell.stdout, "hello world\\n")
         if not py3:
             apsw.faultdict["AsWriteBufferFails"]=True
             try:
-                for row in self.db.cursor().execute("select x'1234ccddeeff'"):
+                for row in self.db.execute("select x'1234ccddeeff'"):
                     pass
                 1/0
             except MemoryError:
@@ -7350,7 +7350,7 @@ shell.write(shell.stdout, "hello world\\n")
             apsw.faultdict["ConnectionCloseFail"]=True
             try:
                 db=apsw.Connection(":memory:")
-                db.cursor().execute("select 3")
+                db.execute("select 3")
                 db.close(True)
                 1/0
             except apsw.IOError:
@@ -7362,7 +7362,7 @@ shell.write(shell.stdout, "hello world\\n")
             apsw.faultdict["ConnectionCloseFail"]=True
             def f():
                 db=apsw.Connection(":memory:")
-                db.cursor().execute("select 3")
+                db.execute("select 3")
                 del db
                 gc.collect()
             self.assertRaisesUnraisable(apsw.ConnectionNotClosedError, f)
@@ -7371,7 +7371,7 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["BlobAllocFails"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("create table foo(ablob); insert into foo (ROWID, ablob) values (1,x'aabbccddeeff')")
+            db.execute("create table foo(ablob); insert into foo (ROWID, ablob) values (1,x'aabbccddeeff')")
             blob=db.blobopen("main", "foo", "ablob", 1, False)
             1/0
         except MemoryError:
@@ -7381,7 +7381,7 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["CursorAllocFails"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("select 3")
+            db.execute("select 3")
             1/0
         except MemoryError:
             pass
@@ -7400,7 +7400,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.setrollbackhook(dummy)
-            db.cursor().execute("create table foo(a); begin ; insert into foo values(3); rollback")
+            db.execute("create table foo(a); begin ; insert into foo values(3); rollback")
             1/0
         except MemoryError:
             pass
@@ -7410,7 +7410,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.setcommithook(dummy)
-            db.cursor().execute("begin; create table foo(a); insert into foo values(3); commit")
+            db.execute("begin; create table foo(a); insert into foo values(3); commit")
             1/0
         except MemoryError:
             pass
@@ -7420,7 +7420,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.setauthorizer(dummy)
-            db.cursor().execute("create table foo(a)")
+            db.execute("create table foo(a)")
             1/0
         except MemoryError:
             pass
@@ -7496,7 +7496,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createscalarfunction("dummy", dummy)
-            db.cursor().execute("select dummy(4)")
+            db.execute("select dummy(4)")
             1/0
         except:
             klass,value=sys.exc_info()[:2]
@@ -7507,7 +7507,7 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["UnknownColumnType"]=True
         try:
             db=apsw.Connection(":memory:")
-            for row in db.cursor().execute("select 3"):
+            for row in db.execute("select 3"):
                 pass
             1/0
         except:
@@ -7520,7 +7520,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createscalarfunction("foo", lambda x: u("another unicode string"))
-            for row in db.cursor().execute("select foo(3)"):
+            for row in db.execute("select foo(3)"):
                 pass
             1/0
         except MemoryError:
@@ -7532,7 +7532,7 @@ shell.write(shell.stdout, "hello world\\n")
             try:
                 db=apsw.Connection(":memory:")
                 db.createscalarfunction("foo", lambda x: "another string"*10000)
-                for row in db.cursor().execute("select foo(3)"):
+                for row in db.execute("select foo(3)"):
                     pass
                 1/0
             except MemoryError:
@@ -7543,7 +7543,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createscalarfunction("foo", lambda x: b("another string"))
-            for row in db.cursor().execute("select foo(3)"):
+            for row in db.execute("select foo(3)"):
                 pass
             1/0
         except MemoryError:
@@ -7554,7 +7554,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createscalarfunction("foo", dummy)
-            for row in db.cursor().execute("select foo(3)"):
+            for row in db.execute("select foo(3)"):
                 pass
             1/0
         except MemoryError:
@@ -7567,7 +7567,7 @@ shell.write(shell.stdout, "hello world\\n")
             def foo():
                 return None, dummy2, dummy2
             db.createaggregatefunction("foo", foo)
-            for row in db.cursor().execute("create table bar(x);insert into bar values(3); select foo(x) from bar"):
+            for row in db.execute("create table bar(x);insert into bar values(3); select foo(x) from bar"):
                 pass
             1/0
         except MemoryError:
@@ -7578,7 +7578,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createscalarfunction("foo", dummy)
-            db.cursor().execute("select foo(3)")
+            db.execute("select foo(3)")
             1/0
         except MemoryError:
             pass
@@ -7591,7 +7591,7 @@ shell.write(shell.stdout, "hello world\\n")
                 def foo():
                     return None, dummy, dummy2
                 db.createaggregatefunction("foo", foo)
-                for row in db.cursor().execute("create table bar(x);insert into bar values(3); select foo(x) from bar"):
+                for row in db.execute("create table bar(x);insert into bar values(3); select foo(x) from bar"):
                     pass
                 1/0
             self.assertRaisesUnraisable(Exception, f)
@@ -7642,7 +7642,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createmodule("nonsense", None)
-            db.cursor().execute("create virtual table foo using nonsense(3,4)")
+            db.execute("create virtual table foo using nonsense(3,4)")
             1/0
         except MemoryError:
             pass
@@ -7652,7 +7652,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createmodule("foo", Source())
-            db.cursor().execute("create virtual table foo using foo();update foo set x=3 where y=2")
+            db.execute("create virtual table foo using foo();update foo set x=3 where y=2")
             1/0
         except MemoryError:
             pass
@@ -7662,7 +7662,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createmodule("foo", Source())
-            db.cursor().execute("create virtual table foo using foo();update foo set x=3 where y=2")
+            db.execute("create virtual table foo using foo();update foo set x=3 where y=2")
             1/0
         except MemoryError:
             pass
@@ -7672,7 +7672,7 @@ shell.write(shell.stdout, "hello world\\n")
         try:
             db=apsw.Connection(":memory:")
             db.createmodule("foo", Source())
-            db.cursor().execute("create virtual table foo using foo(); alter table foo rename to bar")
+            db.execute("create virtual table foo using foo(); alter table foo rename to bar")
             1/0
         except MemoryError:
             pass
@@ -7692,8 +7692,8 @@ shell.write(shell.stdout, "hello world\\n")
             db=apsw.Connection(":memory:")
             db.overloadfunction("xyz", 2)
             db.createmodule("foo", Source())
-            db.cursor().execute("create virtual table foo using foo()")
-            db.cursor().execute("select xyz(x,y) from foo")
+            db.execute("create virtual table foo using foo()")
+            db.execute("select xyz(x,y) from foo")
             1/0
         except MemoryError:
             pass
@@ -7701,7 +7701,7 @@ shell.write(shell.stdout, "hello world\\n")
         ## BlobDeallocException
         def f():
             db=apsw.Connection(":memory:")
-            db.cursor().execute("create table foo(b);insert into foo(rowid,b) values(2,x'aabbccddee')")
+            db.execute("create table foo(b);insert into foo(rowid,b) values(2,x'aabbccddee')")
             blob=db.blobopen("main", "foo", "b", 2, False) # open read-only
             # deliberately cause problem
             try:  blob.write(b('a'))
@@ -7716,7 +7716,7 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["BlobWriteAsReadBufFails"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("create table foo(b);insert into foo(rowid,b) values(2,x'aabbccddee')")
+            db.execute("create table foo(b);insert into foo(rowid,b) values(2,x'aabbccddee')")
             blob=db.blobopen("main", "foo", "b", 2, True)
             blob.write(b("aaaaaa"))
             1/0
@@ -7738,7 +7738,7 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["DoBindingUnicodeConversionFails"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("select ?", (u("abc"),))
+            db.execute("select ?", (u("abc"),))
             1/0
         except MemoryError:
             pass
@@ -7748,7 +7748,7 @@ shell.write(shell.stdout, "hello world\\n")
             apsw.faultdict["DoBindingStringConversionFails"]=True
             try:
                 db=apsw.Connection(":memory:")
-                db.cursor().execute("select ?", ("abc"*10000,))
+                db.execute("select ?", ("abc"*10000,))
                 1/0
             except MemoryError:
                 pass
@@ -7757,7 +7757,7 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["DoBindingAsReadBufferFails"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("select ?", (b("abcd"),))
+            db.execute("select ?", (b("abcd"),))
             1/0
         except MemoryError:
             pass
@@ -7947,12 +7947,12 @@ shell.write(shell.stdout, "hello world\\n")
         apsw.faultdict["TransferBindingsFail"]=True
         try:
             db=apsw.Connection(":memory:")
-            db.cursor().execute("create table foo(x,y); insert into foo values(3,4)")
-            db.cursor().execute("create index fooxy on foo(x,y)")
-            for row in db.cursor().execute("select * from foo"):
+            db.execute("create table foo(x,y); insert into foo values(3,4)")
+            db.execute("create index fooxy on foo(x,y)")
+            for row in db.execute("select * from foo"):
                 pass
-            db.cursor().execute("drop index fooxy")
-            for row in db.cursor().execute("select * from foo"):
+            db.execute("drop index fooxy")
+            for row in db.execute("select * from foo"):
                 pass
             1/0
         except apsw.NoMemError:
@@ -8060,7 +8060,7 @@ shell.write(shell.stdout, "hello world\\n")
         # test the objects
         def teststuff(db, cur, blob, backup):
             if db:
-                db.cursor().execute("select 3")
+                db.execute("select 3")
             if cur:
                 cur.execute("select 3")
             if blob:
@@ -8120,8 +8120,8 @@ def testdb(filename=TESTFILEPREFIX+"testdb2", vfsname="apswtest", closedb=True, 
 
     db=apsw.Connection("file:"+filename+"?psow=0", vfs=vfsname, flags=openflags)
     if mode:
-        db.cursor().execute("pragma journal_mode="+mode)
-    db.cursor().execute("create table foo(x,y); insert into foo values(1,2); insert into foo values(date('now'), date('now'))")
+        db.execute("pragma journal_mode="+mode)
+    db.execute("create table foo(x,y); insert into foo values(1,2); insert into foo values(date('now'), date('now'))")
     if testtimeout:
         # busy
         db2=apsw.Connection(filename, vfs=vfsname)
@@ -8130,7 +8130,7 @@ def testdb(filename=TESTFILEPREFIX+"testdb2", vfsname="apswtest", closedb=True, 
         db.setbusytimeout(1100)
         db2.cursor().execute("begin exclusive")
         try:
-            db.cursor().execute("begin immediate")
+            db.execute("begin immediate")
             1/0 # should not be reached
         except apsw.BusyError:
             pass
@@ -8173,7 +8173,7 @@ def testdb(filename=TESTFILEPREFIX+"testdb2", vfsname="apswtest", closedb=True, 
         except apsw.ExtensionLoadingError:
             pass
         db.loadextension(LOADEXTENSIONFILENAME)
-        assert(1==next(db.cursor().execute("select half(2)"))[0])
+        assert(1==next(db.execute("select half(2)"))[0])
 
     # Get the routine xCheckReservedLock to be called.  We need a hot journal
     # which this code adapted from SQLite's pager.test does
@@ -8193,8 +8193,8 @@ def testdb(filename=TESTFILEPREFIX+"testdb2", vfsname="apswtest", closedb=True, 
 
         hotdb=apsw.Connection(filename+"x", vfs=vfsname)
         if mode:
-            hotdb.cursor().execute("pragma journal_mode="+mode)
-        hotdb.cursor().execute("select sql from sqlite_master")
+            hotdb.execute("pragma journal_mode="+mode)
+        hotdb.execute("select sql from sqlite_master")
         hotdb.close()
 
     if closedb:

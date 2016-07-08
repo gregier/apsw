@@ -14,6 +14,8 @@ Added SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION constant.
 
 Added a :ref:`pip command line <really_want_pip>` in the :doc:`download` page.
 
+Added :meth:`Connection.execute` and :meth:`Connection.executemany`.
+
 3.12.2-r1
 =========
 

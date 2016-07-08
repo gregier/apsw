@@ -3548,7 +3548,7 @@ class APSW(unittest.TestCase):
 
             "Connection":
                 {
-                  "skip": ("internal_cleanup", "dealloc", "init", "close", "interrupt", "close_internal", "remove_dependent", "readonly", "getmainfilename", "db_filename"),
+                  "skip": ("internal_cleanup", "dealloc", "init", "close", "interrupt", "close_internal", "remove_dependent", "readonly", "getmainfilename", "db_filename", "execute", "executemany"),
                   "req":
                       {
                          "use": "CHECK_USE",

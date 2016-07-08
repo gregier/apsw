@@ -3287,6 +3287,78 @@ Connection_db_filename(Connection *self, PyObject *name)
   return convertutf8string(res);
 }
 
+static PyObject*
+Connection_cursor_method(Connection *self, const char *method_name, PyObject *args)
+{
+  PyObject *cursor;
+  PyObject *method=NULL;
+  PyObject *retval=NULL;
+  CHECK_USE(NULL);
+  CHECK_CLOSED(self, NULL);
+
+  cursor=PyObject_CallMethod((PyObject*)self, "cursor", NULL);
+  if(!cursor)
+    return NULL;
+
+  method=PyObject_GetAttrString(cursor, method_name);
+  if(!method)
+    {
+      Py_CLEAR(cursor);
+    }
+  else
+    {
+      retval=PyObject_CallObject(method, args);
+      if(!retval)
+        Py_CLEAR(cursor);
+    }
+
+  Py_XDECREF(retval);
+  Py_XDECREF(method);
+  return cursor;
+}
+
+/** .. method:: execute(statements[, bindings]) -> iterator
+
+    Creates a new :class:`Cursor` object by calling the cursor() method,
+    calls its execute() method with the parameters supplied,
+    and returns the :class:`Cursor` object.
+
+    :param statements: One or more SQL statements.
+    :param bindings: If supplied should either be a sequence or a dictionary.
+      Each item must be one of the :ref:`supported types <types>`
+
+    :raises TypeError: The bindings supplied were neither a dict nor a sequence
+    :raises BindingsError: You supplied too many or too few bindings for the statements
+    :raises IncompleteExecutionError: There are remaining unexecuted queries from your last execute
+
+    .. seealso::
+
+       * :meth:`Cursor.execute`
+
+*/
+static PyObject*
+Connection_execute(Connection *self, PyObject *args)
+{
+  return Connection_cursor_method(self, "execute", args);
+}
+
+/** .. method:: executemany(statements, sequenceofbindings)  -> iterator
+
+    Creates a new :class:`Cursor` object by calling the cursor() method,
+    calls its executemany() method with the parameters supplied,
+    and returns the :class:`Cursor` object.
+
+    .. seealso::
+
+       * :meth:`Cursor.executemany`
+
+*/
+static PyObject*
+Connection_executemany(Connection *self, PyObject *args)
+{
+  return Connection_cursor_method(self, "executemany", args);
+}
+
 /** .. attribute:: filename
 
   The filename of the  database.
@@ -3415,6 +3487,10 @@ static PyMethodDef Connection_methods[] = {
    "Check if database is readonly"},
   {"db_filename", (PyCFunction)Connection_db_filename, METH_O,
    "Return filename of main or attached database"},
+  {"execute", (PyCFunction)Connection_execute, METH_VARARGS,
+   "Executes one or more statements"},
+  {"executemany", (PyCFunction)Connection_executemany, METH_VARARGS,
+   "Repeatedly executes statements on sequence"},
   {0, 0, 0, 0}  /* Sentinel */
 };
 
